@@ -1,6 +1,7 @@
 package db
 
 import (
+	"github.com/hfl0506/reader-app/internal/model"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -12,7 +13,7 @@ func ConnectDB(dsn string) (*gorm.DB, error) {
 		return nil, err
 	}
 
-	db.AutoMigrate()
+	db.AutoMigrate(&model.Book{}, &model.User{})
 
 	return db, nil
 }

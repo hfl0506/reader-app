@@ -1,17 +1,40 @@
 package controller
 
 import (
+	"github.com/hfl0506/reader-app/internal/store"
 	"github.com/labstack/echo/v4"
-	"gorm.io/gorm"
 )
 
-type Controller struct {
-	Db *gorm.DB
+type Handler struct {
+	UserStore *store.UserStore
+	BookStore *store.BookStore
 }
 
-func (c *Controller) RegisterRoutes(db *gorm.DB, e *echo.Echo) {
-	appRoutes := e.Group("/api")
+func NewHandler(payload Handler) *Handler {
+	return &Handler{
+		UserStore: payload.UserStore,
+		BookStore: payload.BookStore,
+	}
+}
 
-	bookRoutes := appRoutes.Group("/books")
-	bookRoutes.GET("/", c.GetBook)
+func (h *Handler) RegisterRoutes(v1 *echo.Group) {
+	bookRoutes := v1.Group("/books")
+	bookRoutes.GET("", h.GetBooks)
+	bookRoutes.GET("/:id", h.GetBookById)
+	bookRoutes.POST("", h.CreateBook)
+	bookRoutes.PUT("/:id", h.UpdateBook)
+	bookRoutes.DELETE("/:id", h.DeleteBook)
+
+	userRoutes := v1.Group("/users")
+	userRoutes.GET("/:id", h.GetUserById)
+	userRoutes.POST("", h.CreateUser)
+	userRoutes.PUT("/:id", h.UpdateUser)
+	userRoutes.DELETE("/:id", h.DeleteUser)
+
+	authRoutes := v1.Group("/auth")
+	authRoutes.POST("/login", h.Login)
+
+	imageRoutes := v1.Group("/images")
+	imageRoutes.POST("/upload", h.UploadImage)
+	imageRoutes.POST("/download", h.DownloadFile)
 }
