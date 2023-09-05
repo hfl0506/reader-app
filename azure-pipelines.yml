@@ -1,0 +1,57 @@
+trigger:
+- main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  # Define variables for SQL Server admin credentials, resource groups, etc.
+  sourceClientId: '5d6b0df7-df89-424e-a123-971dd7680ad6'
+  sourceClientSecret: 'H~.8Q~Rg7sg0O6MfFI~~kGa45j9jCn_~RvJyOao9'
+  sourceTenantId: '15389bd9-b686-458e-9943-75904dba249e'
+  sourceResourceGroup: 'dev-rg'
+  sourceServerName: 'dev-sql-server-ms.database.windows.net'
+  sourceDatabaseName: 'dev-sql-db-md'
+  
+  destClientId: '60c9ffd2-3d0e-42ca-9cfd-3fd72d9bdf02'
+  destClientSecret: 'ANG8Q~DC4mzDlWhTbt3-yr1QiKZoazg_fVtWJbve'
+  destTenantId: '15389bd9-b686-458e-9943-75904dba249e'
+  destResourceGroup: 'dev-rg'
+  destServerName: 'dev-sql-server-mss.database.windows.net'
+  destDatabaseName: 'dev-sql-ms-db'
+  
+  transferServerName: 'transferServer'
+  transferDatabaseName: 'transferDatabase'
+  location: 'eastus2'
+
+stages:
+- stage: TransferDatabase
+  jobs:
+  - job: TransferDatabase
+    steps:
+    - script: sudo apt-get update && sudo apt-get install -y azure-cli
+      displayName: 'Install Azure CLI'
+
+    - script: az login --service-principal -u $(sourceClientId) -p $(sourceClientSecret) --tenant $(sourceTenantId)
+      displayName: 'Login to Source Azure Subscription'
+
+    - script: az sql server create --name $(transferServerName) --resource-group $(sourceResourceGroup) --location $(location) --admin-user adminUser --admin-password adminPassword123!
+      displayName: 'Create Transfer SQL Server'
+
+    - script: az sql db copy --resource-group $(sourceResourceGroup) --server $(sourceServerName) --name $(sourceDatabaseName) --dest-name $(transferDatabaseName) --dest-server $(transferServerName)
+      displayName: 'Copy Source Database to Transfer SQL Server'
+
+    - script: az resource move --destination-group $(destResourceGroup) --source-ids /subscriptions/{source-subscription-id}/resourceGroups/$(sourceResourceGroup)/providers/Microsoft.Sql/servers/$(transferServerName) --destination-subscription-id {dest-subscription-id}
+      displayName: 'Move Transfer SQL Server to Destination Subscription'
+
+    - script: az login --service-principal -u $(destClientId) -p $(destClientSecret) --tenant $(destTenantId)
+      displayName: 'Login to Destination Azure Subscription'
+
+    - script: az sql db copy --resource-group $(destResourceGroup) --server $(transferServerName) --name $(transferDatabaseName) --dest-name $(destDatabaseName) --dest-server $(destServerName)
+      displayName: 'Copy Database to Destination SQL Server'
+
+    - script: az sql db delete --resource-group $(destResourceGroup) --server $(transferServerName) --name $(transferDatabaseName) --yes --no-wait
+      displayName: 'Delete Transfer Database'
+      
+    - script: az sql server delete --resource-group $(destResourceGroup) --name $(transferServerName) --yes --no-wait
+      displayName: 'Delete Transfer SQL Server'
